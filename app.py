@@ -16,16 +16,7 @@ from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
 
-# Download NLTK data for summarization
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
-    nltk.download('punkt')
-try:
-    nltk.data.find('tokenizers/punkt_tab')
-except LookupError:
-    nltk.download('punkt_tab')
-
+# NLTK data is pre-downloaded via the Dockerfile
 app = FastAPI()
 
 REGISTRATION_NUMBER = "FA23-BAI-049"
