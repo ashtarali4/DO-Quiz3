@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+selenium
+webdriver-manager
+sumy
+nltk
+beautifulsoup4
+lxml
