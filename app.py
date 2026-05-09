@@ -23,21 +23,22 @@ REGISTRATION_NUMBER = "FA23-BAI-049"
 NEWS_SOURCE = "South China Morning Post"
 
 def get_driver():
+    print("Initializing Chrome Driver...")
     options = Options()
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--window-size=1920,1080")
-    # For docker vs local
-    if os.path.exists("/usr/bin/chromedriver"):
-        service = Service("/usr/bin/chromedriver")
-        driver = webdriver.Chrome(service=service, options=options)
-    else:
-        service = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=options)
+    options.add_argument("--disable-gpu")
+    
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=options)
+    driver.set_page_load_timeout(30)
+    print("Chrome Driver initialized.")
     return driver
 
 def summarize_text(text: str, sentences_count: int = 3) -> str:
+    print(f"Summarizing text of length {len(text)}...")
     parser = PlaintextParser.from_string(text, Tokenizer("english"))
     summarizer = LsaSummarizer()
     summary_sentences = summarizer(parser.document, sentences_count)
@@ -45,17 +46,19 @@ def summarize_text(text: str, sentences_count: int = 3) -> str:
 
 @app.get("/get")
 def get_news(keyword: str = Query(..., description="Keyword to search for")):
+    print(f"Received request for keyword: {keyword}")
     driver = None
     try:
         driver = get_driver()
         search_url = f"https://www.scmp.com/search/{keyword}"
+        print(f"Navigating to {search_url}")
         driver.get(search_url)
 
-        # Wait for links to appear
-        WebDriverWait(driver, 10).until(
+        print("Waiting for links to load...")
+        WebDriverWait(driver, 15).until(
             EC.presence_of_element_located((By.TAG_NAME, "a"))
         )
-        time.sleep(3) # allow JS to populate links
+        time.sleep(3) 
 
         links = driver.find_elements(By.TAG_NAME, "a")
         article_url = None
@@ -66,24 +69,28 @@ def get_news(keyword: str = Query(..., description="Keyword to search for")):
                 break
         
         if not article_url:
+            print("No article found.")
             return {"error": "No article found for the given keyword."}
 
-        # Navigate to the article
+        print(f"Found article: {article_url}")
         driver.get(article_url)
-        WebDriverWait(driver, 10).until(
+        print("Waiting for article paragraphs to load...")
+        WebDriverWait(driver, 15).until(
             EC.presence_of_element_located((By.TAG_NAME, "p"))
         )
         time.sleep(2)
 
-        # Extract text using BeautifulSoup
+        print("Extracting text...")
         soup = BeautifulSoup(driver.page_source, "html.parser")
         paragraphs = soup.find_all("p")
         article_text = " ".join([p.get_text() for p in paragraphs if len(p.get_text().split()) > 5])
 
         if not article_text:
+            print("Failed to extract text.")
             return {"error": "Failed to extract article content."}
 
         summary = summarize_text(article_text, sentences_count=4)
+        print("Summary generated successfully!")
 
         return {
             "registration": REGISTRATION_NUMBER,
